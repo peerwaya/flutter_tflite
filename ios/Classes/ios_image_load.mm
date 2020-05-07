@@ -9,42 +9,23 @@
 #import <CoreImage/CoreImage.h>
 #import <ImageIO/ImageIO.h>
 
-std::vector<uint8_t> LoadImageFromFile(const char* file_name,
+NSData *LoadImageFromFile(NSString* file_name,
                                      int* out_width, int* out_height,
                                      int* out_channels) {
-  FILE* file_handle = fopen(file_name, "rb");
-  fseek(file_handle, 0, SEEK_END);
-  const size_t bytes_in_file = ftell(file_handle);
-  fseek(file_handle, 0, SEEK_SET);
-  std::vector<uint8_t> file_data(bytes_in_file);
-  fread(file_data.data(), 1, bytes_in_file, file_handle);
-  fclose(file_handle);
-
-  CFDataRef file_data_ref = CFDataCreateWithBytesNoCopy(NULL, file_data.data(),
-                                                        bytes_in_file,
-                                                        kCFAllocatorNull);
-  CGDataProviderRef image_provider = CGDataProviderCreateWithCFData(file_data_ref);
-  
-  const char* suffix = strrchr(file_name, '.');
-  if (!suffix || suffix == file_name) {
-    suffix = "";
-  }
+  CGDataProviderRef image_provider = CGDataProviderCreateWithCFData((CFDataRef)[NSData dataWithContentsOfFile:file_name]);
   CGImageRef image;
-  if (strcasecmp(suffix, ".png") == 0) {
+  if ([file_name hasSuffix:@".png"]) {
     image = CGImageCreateWithPNGDataProvider(image_provider, NULL, true,
                                              kCGRenderingIntentDefault);
-  } else if ((strcasecmp(suffix, ".jpg") == 0) ||
-             (strcasecmp(suffix, ".jpeg") == 0)) {
+  } else if ([file_name hasSuffix:@".jpg"] || [file_name hasSuffix:@".jpeg"]) {
     image = CGImageCreateWithJPEGDataProvider(image_provider, NULL, true,
                                               kCGRenderingIntentDefault);
   } else {
     CFRelease(image_provider);
-    CFRelease(file_data_ref);
-    fprintf(stderr, "Unknown suffix for file '%s'\n", file_name);
     out_width = 0;
     out_height = 0;
     *out_channels = 0;
-    return std::vector<uint8_t>();
+    return NULL;
   }
   
   int width = (int)CGImageGetWidth(image);
@@ -53,18 +34,18 @@ std::vector<uint8_t> LoadImageFromFile(const char* file_name,
   CGColorSpaceRef color_space = CGColorSpaceCreateDeviceRGB();
   const int bytes_per_row = (width * channels);
   const int bytes_in_image = (bytes_per_row * height);
-  std::vector<uint8_t> result(bytes_in_image);
   const int bits_per_component = 8;
 
-  CGContextRef context = CGBitmapContextCreate(result.data(), width, height,
+  CGContextRef context = CGBitmapContextCreate(NULL, width, height,
                                                bits_per_component, bytes_per_row, color_space,
                                                kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
   CGColorSpaceRelease(color_space);
   CGContextDrawImage(context, CGRectMake(0, 0, width, height), image);
+    
+  NSData* result =  [[NSData alloc] initWithBytes:CGBitmapContextGetData(context) length:bytes_in_image];
   CGContextRelease(context);
   CFRelease(image);
   CFRelease(image_provider);
-  CFRelease(file_data_ref);
   
   *out_width = width;
   *out_height = height;

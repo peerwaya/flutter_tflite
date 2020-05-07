@@ -33,6 +33,9 @@ android {
     }
 
     dependencies {
-        compile 'org.tensorflow:tensorflow-lite:+'
+        // Build off of nightly TensorFlow Lite
+        implementation('org.tensorflow:tensorflow-lite:0.0.0-nightly') { changing = true }
+        implementation('org.tensorflow:tensorflow-lite-gpu:0.0.0-nightly') { changing = true }
+        implementation('org.tensorflow:tensorflow-lite-support:0.0.0-nightly') { changing = true }
     }
 }
