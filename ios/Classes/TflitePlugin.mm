@@ -12,7 +12,7 @@
 
 
 #import "TensorFlowLiteC/TensorFlowLiteC.h"
-
+//#import "TensorFlowLiteCCoreML/TensorFlowLiteCCoreML.h"
 #include "ios_image_load.h"
 
 #define LOG(x) std::cerr
@@ -132,15 +132,15 @@ NSString* loadModel(NSObject<FlutterPluginRegistrar>* _registrar, NSDictionary* 
   @try {
       NSString* graph_path;
       NSString* key;
-      NSNumber* isAssetNumber = args[@"isAsset"];
-      bool isAsset = [isAssetNumber boolValue];
-      if(isAsset){
+      NSNumber* isModelAssetNumber = args[@"isModelAsset"];
+      bool isModelAsset = [isModelAssetNumber boolValue];
+      if(isModelAsset){
         key = [_registrar lookupKeyForAsset:args[@"model"]];
         graph_path = [[NSBundle mainBundle] pathForResource:key ofType:nil];
       }else{
         graph_path = args[@"model"];
       }
-
+      
       const int num_threads = [args[@"numThreads"] intValue];
       NSLog(@"LOCAL MODEL PATH:%@", graph_path);
       const char *modelPathCString = graph_path.UTF8String;
@@ -162,15 +162,19 @@ NSString* loadModel(NSObject<FlutterPluginRegistrar>* _registrar, NSDictionary* 
           TfLiteInterpreterOptionsSetNumThreads(cOptions, num_threads);
       }
       TfLiteInterpreterOptionsSetErrorReporter(cOptions, TFLInterpreterErrorReporter, nullptr);
-      TfLiteCoreMlDelegateOptions coreOptions = {};
-      coreMLDelegate = TfLiteCoreMlDelegateCreate(&coreOptions);
-      if (coreMLDelegate) {
-        TfLiteInterpreterOptionsAddDelegate(cOptions, coreMLDelegate);
-      } else {
-        gpuDelegate = TFLGpuDelegateCreate(nullptr);
-        if (gpuDelegate) {
-            TfLiteInterpreterOptionsAddDelegate(cOptions, gpuDelegate);
-        }
+//      TfLiteCoreMlDelegateOptions coreOptions = {};
+//      coreMLDelegate = TfLiteCoreMlDelegateCreate(&coreOptions);
+//      if (coreMLDelegate) {
+//        TfLiteInterpreterOptionsAddDelegate(cOptions, coreMLDelegate);
+//      } else {
+//        gpuDelegate = TFLGpuDelegateCreate(nullptr);
+//        if (gpuDelegate) {
+//            TfLiteInterpreterOptionsAddDelegate(cOptions, gpuDelegate);
+//        }
+//      }
+      gpuDelegate = TFLGpuDelegateCreate(nullptr);
+      if (gpuDelegate) {
+          TfLiteInterpreterOptionsAddDelegate(cOptions, gpuDelegate);
       }
       interpreter = TfLiteInterpreterCreate(model, cOptions);
       
@@ -182,8 +186,10 @@ NSString* loadModel(NSObject<FlutterPluginRegistrar>* _registrar, NSDictionary* 
           return @"Failed to allocate memory for tensors.";
       }
       if ([args[@"labels"] length] > 0) {
+        NSNumber* isLabelAssetNumber = args[@"isLabelAsset"];
+        bool isLabelAsset = [isLabelAssetNumber boolValue];
         NSString* labels_path;
-        if(isAsset){
+        if(isLabelAsset){
           key = [_registrar lookupKeyForAsset:args[@"labels"]];
           labels_path = [[NSBundle mainBundle] pathForResource:key ofType:nil];
         }else{
@@ -1381,9 +1387,9 @@ void close() {
   }
   interpreter = NULL;
   labels.clear();
-  if (coreMLDelegate) {
-    TfLiteCoreMlDelegateDelete(coreMLDelegate);
-  }
+//  if (coreMLDelegate) {
+//    TfLiteCoreMlDelegateDelete(coreMLDelegate);
+//  }
   if (gpuDelegate) {
     TFLGpuDelegateDelete(gpuDelegate);
   };

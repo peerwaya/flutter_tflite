@@ -49,6 +49,7 @@ import java.util.Vector;
 
 
 public class TflitePlugin implements MethodCallHandler {
+  private final static String TAG = "TflitePlugin";
   private final Registrar mRegistrar;
   private Interpreter tfLite;
   private boolean tfLiteBusy = false;
@@ -196,12 +197,14 @@ public class TflitePlugin implements MethodCallHandler {
 
   private String loadModel(HashMap args) throws IOException {
     String model = args.get("model").toString();
-    Object isAssetObj = args.get("isAsset");
-    boolean isAsset = isAssetObj == null ? false : (boolean) isAssetObj;
+    Object isAssetModelObj = args.get("isModelAsset");
+    boolean isModelAsset = isAssetModelObj == null ? false : (boolean) isAssetModelObj;
+    Object isAssetLabelObj = args.get("isLabelAsset");
+    boolean isLabelAsset = isAssetLabelObj == null ? false : (boolean) isAssetLabelObj;
     MappedByteBuffer buffer = null;
     String key = null;
     AssetManager assetManager = null;
-    if (isAsset) {
+    if (isModelAsset) {
       assetManager = mRegistrar.context().getAssets();
       key = mRegistrar.lookupKeyForAsset(model);
       AssetFileDescriptor fileDescriptor = assetManager.openFd(key);
@@ -216,25 +219,21 @@ public class TflitePlugin implements MethodCallHandler {
       long declaredLength = fileChannel.size();
       buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, declaredLength);
     }
-
     int numThreads = (int) args.get("numThreads");
     gpuDelegate = new GpuDelegate();
     final Interpreter.Options tfliteOptions = new Interpreter.Options();
     tfliteOptions.setNumThreads(numThreads);
     tfliteOptions.addDelegate(gpuDelegate);
     tfLite = new Interpreter(buffer, tfliteOptions);
-
     String labels = args.get("labels").toString();
-
-    if (labels.length() > 0) {
-      if (isAsset) {
+    if (labels != null && labels.length() > 0) {
+      if (isLabelAsset) {
         key = mRegistrar.lookupKeyForAsset(labels);
         loadLabels(assetManager, key);
       } else {
         loadLabels(null, labels);
       }
     }
-
     return "success";
   }
 
@@ -250,10 +249,12 @@ public class TflitePlugin implements MethodCallHandler {
       labels = new Vector<>();
       while ((line = br.readLine()) != null) {
         labels.add(line);
+        Log.d(TAG, "LABEL : "+line);
       }
       labelProb = new float[1][labels.size()];
       br.close();
     } catch (IOException e) {
+      e.printStackTrace();
       throw new RuntimeException("Failed to read label file", e);
     }
   }

@@ -11,7 +11,8 @@ class Tflite {
     @required String model,
     String labels = "",
     int numThreads = 1,
-    bool isAsset = true,
+    bool isModelAsset = true,
+    bool isLabelAsset = true,
   }) async {
     return await _channel.invokeMethod(
       'loadModel',
@@ -19,7 +20,8 @@ class Tflite {
         "model": model,
         "labels": labels,
         "numThreads": numThreads,
-        "isAsset": isAsset,
+        "isModelAsset": isModelAsset,
+        "isLabelAsset": isLabelAsset,
       },
     );
   }
